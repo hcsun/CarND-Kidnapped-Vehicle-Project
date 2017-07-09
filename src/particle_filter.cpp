@@ -50,7 +50,24 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
+    normal_distribution<double> pos_x(0, std_pos[0]);
+    normal_distribution<double> pos_y(0, std_pos[1]);
+    normal_distribution<double> pos_h(0, std_pos[2]);
 
+    for (int i = 0; i < particles.size(); i++) {
+        if (fabs(yaw_rate) < 0.00001) {  
+            particles[i].x += velocity * delta_t * cos(particles[i].theta);
+            particles[i].y += velocity * delta_t * sin(particles[i].theta);
+        } else { 
+            double pred_x = particles[i].x + velocity / yaw_rate * (sin(particles[i].theta + delta_t * yaw_rate) - sin(particles[i].theta));
+            double pred_y = particles[i].y + velocity / yaw_rate * (cos(particles[i].theta) - cos(particles[i].theta + delta_t * yaw_rate));
+            double pred_theta = particles[i].theta + delta_t * yaw_rate;
+
+            particles[i].x = pred_x + pos_x(gen);
+            particles[i].y = pred_y + pos_y(gen);
+            particles[i].theta = pred_theta + pos_h(gen);
+        }
+    }
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
@@ -58,7 +75,18 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	//   observed measurement to this particular landmark.
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
+    for (int i = 0; i < observations.size(); i++) {    
+        double min_dist = numeric_limits<double>::max();
+        
+        for (int j = 0; j < predicted.size(); j++) {          
+            double distance = dist(observations[i].x, observations[i].y, predicted[j].x, predicted[j].y);
 
+            if (distance < min_dist) {
+                min_dist = distance;
+                observations[i].id = predicted[j].id;
+            }
+        }
+    }
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
